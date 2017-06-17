@@ -1,0 +1,142 @@
+---
+title: "Practical Machine Learning Project"
+author: "Emerson Lima"
+date: "Saturday, June 17, 2017"
+---
+
+For this dataset, the variable classe contains 5 levels:
+
+- Class A: exactly according to the specification
+- Class B: throwing the elbows to the front
+- Class C: lifting the dumbbell only halfway
+- Class D: lowering the dumbbell only halfway
+- Class E: throwing the hips to the front
+
+Two models will be tested using decision tree and random forest algorithms.
+Cross-validation will be performed by subsampling our training dataset randomly without replacement into 2 subsamples: subTraining data (75% of the original Training data set) and subTesting data (25%).
+
+```{r}
+#Creating predictive models
+#Random forest for classification and regression
+#Regressive Partitioning and Regression trees
+#Decision Tree plot
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+set.seed(3654)
+#Loading the training data set replacing missing ("#DIV/0!") with "NA"
+pmltraining <- read.csv("c:/Practical_Machine_Learning/pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+#Loading the testing data set replacing missing ("#DIV/0!") with "NA"
+pmltesting <- read.csv('c:/Practical_Machine_Learning/pml-testing.csv', na.strings=c("NA","#DIV/0!", ""))
+
+dim(pmltraining)
+dim(pmltesting)
+
+#head(pmltraining)
+#head(pmltesting)
+
+#Delete columns with all missing values
+pmltraining<-pmltraining[,colSums(is.na(pmltraining)) == 0]
+pmltesting <-pmltesting[,colSums(is.na(pmltesting)) == 0]
+
+#View(pmltraining)
+#View(pmltesting)
+
+# Some variables are irrelevant to our current project: 
+# user_name
+# raw_timestamp_part_1
+# raw_timestamp_part_2 
+# cvtd_timestamp 
+# new_window 
+# num_window 
+
+
+#Columns 1 to 7 
+pmltraining   <-pmltraining[,-c(1:7)]
+pmltesting <-pmltesting[,-c(1:7)]
+
+
+#Partitioning the training data set to allow cross-validation
+#The training data set contains 53 variables and 19622 obs.
+#The testing data set contains 53 variables and 20 obs.
+
+# Cross-validation: the training data set is partionned 2 sets (subTraining (75%) and subTest (25%))
+
+subsamples <- createDataPartition(y=pmltraining$classe, p=0.75, list=FALSE)
+subTraining <- pmltraining[subsamples, ] 
+subTesting <- pmltraining[-subsamples, ]
+
+dim(subTraining)
+dim(subTesting)
+
+#View(subTraining)
+#View(subTesting)
+
+
+```
+The variable classe contains 5 levels: A, B, C, D, E.
+
+```{r, echo=FALSE}
+plot(subTraining$classe, col="Grey", main="Levels of the variable classe (Sub-Training data set)", xlab="classe levels", ylab="Frequency")
+```
+
+
+
+```{r}
+#From the graph above, we can see that each level frequency is within the same order of magnitude of each other. 
+#Level A is the most frequent while level D is the least frequent
+
+#Using Decision Tree
+
+decision_Tree <- rpart(classe ~ ., data=subTraining, method="class")
+
+#Predicting
+prediction_DT <- predict(decision_Tree, subTesting, type = "class")
+
+```
+
+Plot of the Decision Tree
+
+```{r, echo=FALSE}
+rpart.plot(decision_Tree, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+```{r}
+#Test results on our subTesting data set
+confusionMatrix(prediction_DT, subTesting$classe)
+#Using Random Forest
+random_forest <- randomForest(classe ~. , data=subTraining, method="class")
+
+#Predicting
+prediction_RF <- predict(random_forest, subTesting, type = "class")
+
+#Test results on subTesting dataset
+confusionMatrix(prediction_RF, subTesting$classe)
+
+#Conclusion
+#
+#Random Forest algorithm performed better than Decision Trees.
+#Accuracy for Random Forest model was 0.9941 compared to 0.7465 for Decision Tree model. 
+#The expected out-of-sample error is calculated as 1 - accuracy for predictions made against the cross-validation set. 
+#Our Test data set comprises 20 cases. 
+#With an accuracy above 99% on our cross-validation data, we can expect that very few of the test samples will be missclassified.
+
+
+#Predict Outcome levels on the original Testing data set using Random Forest
+
+predict_final <- predict(random_forest, pmltesting, type="class")
+predict_final
+#Files for submission
+pml_files = function(x)
+{
+  n = length(x)
+  for(i in 1:n)
+  {
+    filename = paste0("problem_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_files(predict_final)
+```
+
